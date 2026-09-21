@@ -11,15 +11,60 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-// ===============================
-// Middleware
-// ===============================
+// =====================================================
+// CORS
+// =====================================================
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://travelerpdemo.netlify.app',
+];
 
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || '*',
+    origin: function (origin, callback) {
+      // Allow requests without an origin
+      // such as Postman/server-to-server requests
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log('❌ CORS blocked:', origin);
+
+      return callback(
+        new Error('Not allowed by CORS')
+      );
+    },
+
+    methods: [
+      'GET',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE',
+      'OPTIONS',
+    ],
+
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+    ],
+
+    credentials: true,
   })
 );
+
+// Handle preflight requests
+app.options('*', cors());
+
+// =====================================================
+// BODY PARSER
+// =====================================================
 
 app.use(express.json());
 
@@ -29,9 +74,9 @@ app.use(
   })
 );
 
-// ===============================
-// Root Route
-// ===============================
+// =====================================================
+// ROOT ROUTE
+// =====================================================
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -40,9 +85,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// ===============================
-// Database Health Check
-// ===============================
+// =====================================================
+// DATABASE HEALTH CHECK
+// =====================================================
 
 app.get('/api/health/db', async (req, res) => {
   try {
@@ -54,7 +99,7 @@ app.get('/api/health/db', async (req, res) => {
     });
   } catch (err) {
     console.error(
-      'Database health check error:',
+      '❌ Database health check error:',
       err
     );
 
@@ -66,53 +111,70 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
-// ===============================
-// API Routes
-// ===============================
+// =====================================================
+// API ROUTES
+// =====================================================
 
+// Onboarding
 app.use(
   '/api/onboarding',
   onboardingRoutes
 );
 
+// Authentication
 app.use(
   '/api/auth',
   authRoutes
 );
 
-// ===============================
-// 404
-// ===============================
+// =====================================================
+// 404 HANDLER
+// =====================================================
 
 app.use((req, res) => {
+  console.log(
+    `❌ 404 - ${req.method} ${req.originalUrl}`
+  );
+
   res.status(404).json({
     success: false,
     message: 'Route not found',
+    method: req.method,
+    path: req.originalUrl,
   });
 });
 
-// ===============================
-// Global Error Handler
-// ===============================
+// =====================================================
+// GLOBAL ERROR HANDLER
+// =====================================================
 
 app.use((err, req, res, next) => {
   console.error(
-    'Server error:',
+    '❌ Server error:',
     err.stack
   );
 
   res.status(500).json({
     success: false,
     message: 'Something went wrong',
+    error: err.message,
   });
 });
 
-// ===============================
-// Start Server
-// ===============================
+// =====================================================
+// START SERVER
+// =====================================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(
-    `✅ Server running on http://localhost:${PORT}`
+    `✅ Server running on port ${PORT}`
+  );
+
+  console.log(
+    `🌐 API: http://localhost:${PORT}`
+  );
+
+  console.log(
+    `🔐 Login: http://localhost:${PORT}/api/auth/login`
   );
 });
